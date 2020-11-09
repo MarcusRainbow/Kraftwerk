@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::collections::{HashMap, HashSet};
 use football::validate_graph;
 
@@ -54,7 +55,7 @@ pub fn full_test() -> () {
     println!("unused players {:?}", unused);
 
     // now keep trying to add players until only four unused
-    let (extra, ref path) = add_players(&graph, path, &mut unused, 4);
+    let (extra, ref path) = add_players(&graph, &categories, path, &mut unused, 4);
     if extra < 0 {
         println!("Unable to find a route with 11 players. Best effort is {}", path);
     } else {
@@ -64,6 +65,7 @@ pub fn full_test() -> () {
 
 pub fn add_players(
         graph: &HashMap<char, HashMap<char, i64>>, 
+        categories: &HashMap<char, (i64, String)>,
         path: &str, 
         unused: &mut HashSet<char>, count: usize) -> (i64, String) {
 
@@ -74,7 +76,7 @@ pub fn add_players(
         min_cost = -1;
         let mut min_player = '?';
         for player in unused.iter() {
-            let (distance, path) = add_player(graph, *player, &current_path);
+            let (distance, path) = add_player(graph, categories, *player, &current_path);
             if distance >= 0 && (min_cost < 0 || distance < min_cost) {
                 min_cost = distance;
                 min_path = path;
@@ -96,9 +98,31 @@ pub fn add_players(
 
 /// Find the best place to insert a player in a path, to reduce the distance to the goal.
 /// If player cannot easily be inserted anywhere (e.g. not adjacent to any player on the path) return -1.
-pub fn add_player(graph: &HashMap<char, HashMap<char, i64>>, player: char, path: &str) -> (i64, String) {
+pub fn add_player(
+    graph: &HashMap<char, HashMap<char, i64>>, 
+    categories: &HashMap<char, (i64, String)>,
+    player: char, 
+    path: &str) -> (i64, String) {
 
-    // println!("add_player: player={}, path={}", player, path);
+    let mut results = Vec::new();
+    results.push(add_player_by_insertion(graph, player, path));
+    results.push(add_player_by_spur(graph, player, path));
+    results.push(add_player_optimally(graph, categories, player, path));
+
+    let mut min_cost = -1;
+    let mut min_path = "".to_string();
+    for (cost, path) in results {
+        if cost > 0 && (min_cost < 0 || cost < min_cost) {
+            min_cost = cost;
+            min_path = path;
+        }
+    }
+
+    (min_cost, min_path)
+}
+
+
+fn add_player_by_insertion(graph: &HashMap<char, HashMap<char, i64>>, player: char, path: &str) -> (i64, String) {
     // first try a single insert (e.g. replace GH with GXH for new player X)
     let player_moves = &graph[&player];
     let mut min_distance = -1;
@@ -125,9 +149,16 @@ pub fn add_player(graph: &HashMap<char, HashMap<char, i64>>, player: char, path:
             from = to;
         }
     }
+    (min_distance, min_path)
+}
+
+fn add_player_by_spur(graph: &HashMap<char, HashMap<char, i64>>, player: char, path: &str) -> (i64, String) {
 
     // Also try a simple spur insert, (e.g. replace GH with GXGH for new player X)
-    players = path.chars();
+    let player_moves = &graph[&player];
+    let mut min_distance = -1;
+    let mut min_path = "".to_string();
+    let players = path.chars();
     for (i, from) in players.enumerate() {
         // we can only do an insert if there are edges both ways
         if let Some(step_to) = player_moves.get(&from) {
@@ -145,9 +176,45 @@ pub fn add_player(graph: &HashMap<char, HashMap<char, i64>>, player: char, path:
         }
     }
 
-    // TODO try fancier ways of doing the insert here
-
     (min_distance, min_path)
+}
+
+/// Try to just create a path that takes in the given player, and check that it has enough players.
+fn add_player_optimally(
+    graph: &HashMap<char, HashMap<char, i64>>, 
+    categories: &HashMap<char, (i64, String)>,
+    player: char, 
+    path: &str) -> (i64, String) {
+
+    let n_path = count_players(path);
+    println!("add_player_optimally: players {}", n_path);
+
+    // first find the optimal path to the given player
+    let (distance_to_player, ref path_to_player) = categories[&player];
+    println!("add_player_optimally: path to player {}, distance {}", path_to_player, distance_to_player);
+
+    // now find the optimal path from the player to the goal
+    let from_player = categorise(&graph, player);
+    let (distance_from_player, ref path_from_player) = from_player[&'x'];
+    println!("add_player_optimally: path from player {}, distance {}", path_from_player, distance_from_player);
+
+    let new_distance = distance_to_player + distance_from_player;
+    let new_path = format!("{}{}", path_to_player, path_from_player);
+    let n_new_path = count_players(&new_path);
+    println!("add_player_optimally: new players {}", n_new_path);
+
+    if n_new_path == n_path + 1 {
+        (new_distance, new_path)
+    } else {
+        (-1, "".to_string())
+    }
+}
+
+pub fn count_players(path: &str) -> usize {
+    // turn the path into a set of characters
+    let mut set_of_players : HashSet<char> = path.chars().collect();
+    set_of_players.remove(&'x');
+    set_of_players.len() 
 }
 
 pub fn evaluate_path(graph: &HashMap<char, HashMap<char, i64>>, path: &str) -> i64 {
