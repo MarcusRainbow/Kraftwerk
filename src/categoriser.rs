@@ -55,7 +55,11 @@ pub fn full_test() -> () {
 
     // now keep trying to add players until only four unused
     let (extra, ref path) = add_players(&graph, path, &mut unused, 4);
-    println!("shortest route using 11 players is: {}, distance {}", path, distance + extra);
+    if extra < 0 {
+        println!("Unable to find a route with 11 players. Best effort is {}", path);
+    } else {
+        println!("shortest route using 11 players is: {}, distance {}", path, distance + extra);
+    }
 }
 
 pub fn add_players(
@@ -94,7 +98,7 @@ pub fn add_players(
 /// If player cannot easily be inserted anywhere (e.g. not adjacent to any player on the path) return -1.
 pub fn add_player(graph: &HashMap<char, HashMap<char, i64>>, player: char, path: &str) -> (i64, String) {
 
-    println!("add_player: player={}, path={}", player, path);
+    // println!("add_player: player={}, path={}", player, path);
     // first try a single insert (e.g. replace GH with GXH for new player X)
     let player_moves = &graph[&player];
     let mut min_distance = -1;
@@ -106,11 +110,11 @@ pub fn add_player(graph: &HashMap<char, HashMap<char, i64>>, player: char, path:
             // we can only do an insert if there are edges both ways
             if let Some(step_to) = player_moves.get(&to) {
                 let from_moves = &graph[&from];
-                println!("add_player: player can step to={}, from={}, from_moves={:?}", to, from, from_moves);
+                // println!("add_player: player can step to={}, from={}, from_moves={:?}", to, from, from_moves);
                 if let Some(step_from) = from_moves.get(&player) {
                     let straight_line = graph[&from][&to];
                     let distance = step_from + step_to - straight_line;
-                    println!("add_player: success! distance={}", distance);
+                    // println!("add_player: success! distance={}", distance);
                     if min_distance < 0 || distance < min_distance {
                         min_distance = distance;
                         min_path = path.to_string();
@@ -119,6 +123,25 @@ pub fn add_player(graph: &HashMap<char, HashMap<char, i64>>, player: char, path:
                 }
             }
             from = to;
+        }
+    }
+
+    // Also try a simple spur insert, (e.g. replace GH with GXGH for new player X)
+    players = path.chars();
+    for (i, from) in players.enumerate() {
+        // we can only do an insert if there are edges both ways
+        if let Some(step_to) = player_moves.get(&from) {
+            let from_moves = &graph[&from];
+            // println!("add_player: player can step from={}, from_moves={:?}", from, from_moves);
+            let step_from = from_moves[&player];
+            let distance = step_from + step_to;
+            // println!("add_player: success! distance={}", distance);
+            if min_distance < 0 || distance < min_distance {
+                min_distance = distance;
+                min_path = path.to_string();
+                min_path.insert(i, player);
+                min_path.insert(i, from);
+            }
         }
     }
 
