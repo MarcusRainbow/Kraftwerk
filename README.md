@@ -38,3 +38,9 @@ The shortest distance given this algorithm is -- shortest route using 11 players
 I added a new method to the second step, allowing the player to be optionally inserted on a spur. For example, insert player D into ABCFHEGJNOx -- ADABCFHEGJNOx, ABDBCFHEGJNOx, ...). As before, only some possibilities are legal. 
 
 The shortest distance given a combination of the two possible second steps is -- shortest route using 11 players is: ABCFHEIGGJNOx, distance 46.
+
+### Second step (optimum insertion approach)
+
+Yet another method for the second step. The approach uses the code from the first step. We pick some player not in the original (fewer than eleven) lineup. The optimum path from the start to this player is already known -- we calculated it in the first step. We then calculate the optimum path from the player to the goal using the same methodology. We now have the optimum path from start to goal that also uses the new player. We count the players in the new team. If this is now eleven, we know we have the perfect solution.
+
+In practice, the optimum path varies from run to run. This is because of the unpredictable nature of hashing in Rust. Sometimes the optimum path is eleven, but when it is the shortest route is 46. This gives some level of proof that for the given problem, the optimum path is 46 steps (though there may be multiple such paths). However, for complete proof, we'd have to find such an optimum path for all players.
