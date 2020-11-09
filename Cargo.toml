@@ -1,0 +1,5 @@
+[package]
+name = "kraftwerk" # the name of the package
+version = "0.0.0"    # the current version, obeying semver
+
+[dependencies]
